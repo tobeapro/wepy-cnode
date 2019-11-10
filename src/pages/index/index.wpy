@@ -1,0 +1,178 @@
+<style lang="less">
+.tab-list{
+  position: fixed;
+  top:0;
+  left:0;
+  width:100%;
+  display: flex;
+  justify-content: center;
+  line-height:60rpx;
+  background:#fff;
+  .tab{
+    padding-bottom:10rpx;
+    box-sizing: border-box;
+    flex:1;
+    text-align:center;
+    border-bottom:4rpx solid transparent;
+    &.active{
+      color:#87d068;
+      border-color:#87d068;
+    }
+  }
+}
+.data-wrap{
+  padding-top:80rpx;
+}
+.item{
+  padding:20rpx;
+  display:flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size:24rpx;
+  line-height:36rpx;
+  border-bottom:2rpx solid #ddd;
+  .avatar{
+    margin-right:20rpx;
+    width:120rpx;
+    height:120rpx;
+    border-radius:50%;
+    flex-shrink:0;
+  }
+  .info{
+    width:570rpx;
+    .title{
+      font-size:28rpx;
+      line-height:40rpx;
+      font-weight:bold;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+  }
+}
+</style>
+
+<template>
+  <div class="container">
+    <ul class="tab-list">
+      <li class="tab" :class="{'active':tab==='all'}" @click="changeTab('all')">全部</li>
+      <li class="tab" :class="{'active':tab==='good'}" @click="changeTab('good')">精华</li>
+      <li class="tab" :class="{'active':tab==='share'}" @click="changeTab('share')">分享</li>
+      <li class="tab" :class="{'active':tab==='ask'}" @click="changeTab('ask')">问答</li>
+      <li class="tab" :class="{'active':tab==='job'}" @click="changeTab('job')">招聘</li>
+    </ul>
+    <div class="data-wrap" id="wrap">
+        <view class="item" v-for="item in dataList" :key="item.id" @click="viewDetail(item.id)">
+          <image class="avatar" :src="item.author?item.author.avatar_url:''"></image>
+          <div class="info">
+            <div class="title">{{item.title}}</div>
+            <!-- <div class="author">{{item.author?item.author.loginname:''}}</div> -->
+            <div>回复数：{{item.reply_count}}  访问数：{{item.visit_count}}</div>
+            <div>创建时间：{{item.create_at}}</div>
+            <div>最后回复：{{item.last_reply_at}}</div>
+          </div>
+        </view>
+    </div>
+  </div>
+</template>
+
+<script>
+  import wepy from '@wepy/core'
+  import store from '@/store';
+  import { formatDate } from '@/common/utils';
+  wepy.page({
+    store,
+    config: {
+      navigationBarTitleText: 'test'
+    },
+
+    data: {
+      baseUrl:'',
+      page:1,
+      tab:'all',
+      limit:10,
+      dataList:[],
+      appHeight:500,
+      wrapHeight:300
+    },
+
+    computed: {
+    },
+
+    methods: {
+      viewDetail(id){
+        wx.navigateTo({
+          url:`/pages/detail/index?id=${id}`
+        })
+      },
+      getData (){
+        wx.request({
+          url:`${this.baseUrl}/topics?tab=${this.tab}&page=${this.page}&limit=${this.limit}`,
+          success:(res)=>{
+            const { success, data } = res.data
+            if(success){
+              const newData = data.map(item=>{
+                return Object.assign(item,{
+                  create_at:formatDate(item.create_at),
+                  last_reply_at:formatDate(item.last_reply_at)
+                })
+              });
+              if(newData.length<this.limit){
+                this.isFinished = true;
+              }
+              this.dataList = this.dataList.concat(newData)
+              wx.nextTick(()=>{
+                this.isLoading = false;
+                const query = wx.createSelectorQuery();
+                query.select('#wrap').boundingClientRect();
+                query.exec((res)=>{
+                  this.wrapHeight = res&&res[0].height||0
+                })
+              })
+            }
+          }
+        })
+      },
+      changeTab(tab){
+        if(tab===this.tab){
+          return
+        }
+        this.tab = tab;
+        this.page = 1;
+        this.dataList.length = 0;
+        wx.pageScrollTo({
+          scrollTop: 0
+        })
+        this.getData()
+      }
+    },
+
+    onLoad () {
+      const appInstance = getApp();
+      this.baseUrl = appInstance.$wepy.$options.globalData.baseUrl;
+      this.isLoading = true;
+      this.getData();
+    },
+
+    onPullDownRefresh(){
+      console.log('到底了')
+    },
+
+    onReady(){
+      this.appHeight = wx.getSystemInfoSync().windowHeight
+    },
+
+    onPageScroll(e){
+      if(!this.isLoading&&!this.isFinished&&(e.scrollTop+this.appHeight+20>this.wrapHeight)){
+        this.isLoading = true;
+        this.page++
+        this.getData()
+      }
+    }
+  });
+</script>
+<config>
+{
+    navigationBarTitleText: '首页',
+}
+</config>

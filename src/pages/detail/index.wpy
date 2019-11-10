@@ -1,0 +1,107 @@
+<style lang="less">
+  .container{
+    padding:20rpx;
+    word-break: break-all;
+  }
+  .align-center{
+    text-align: center;
+  }
+  .reply-list{
+    .reply-item{
+      padding:20rpx;
+      display: flex;
+      justify-content:space-between;
+      border-bottom:2rpx solid #ddd;
+      .avatar{
+        margin-right:20rpx;
+        width:80rpx;
+        height:80rpx;
+        border-radius: 50%;
+      }
+      .info{
+        flex:1;
+      }
+    }
+  }
+  </style>
+
+  <template>
+    <div class="container">
+      <view class="align-center">{{title}}</view>
+      <view class="align-center">作者:{{author}}</view>
+      <div class="align-center">创建于：{{create_at}}</div>
+      <div class="align-center">最后回复：{{last_reply_at}}</div>
+      <rich-text :nodes="content"></rich-text>
+      <view class="reply-list">
+        <view class="reply-item" v-for="(item,index) in replies" :key="item.id">
+          <image class="avatar" :src="item.author.avatar_url"></image>
+          <div class="info">
+              <div>{{index+1}}楼·{{item.create_at}}</div>
+              <rich-text :nodes="item.content"></rich-text>
+          </div>
+        </view>
+      </view>
+    </div>
+  </template>
+
+  <script>
+    import wepy from '@wepy/core'
+    import store from '@/store';
+    import { formatDate, countTime } from '@/common/utils';
+    wepy.page({
+      store,
+      config: {
+        navigationBarTitleText: 'test'
+      },
+
+      data: {
+        baseUrl:'',
+        title:'',
+        author:'',
+        tab:'',
+        content:'',
+        create_at:'',
+        last_reply_at:'',
+        replies:[]
+      },
+
+      computed: {
+      },
+
+      methods: {
+
+      },
+
+      onLoad (option) {
+        const id = option.id;
+        if(!id){
+          wx.navigateBack()
+        }
+        const appInstance = getApp();
+        this.baseUrl = appInstance.$wepy.$options.globalData.baseUrl
+        wx.request({
+          url:`${this.baseUrl}/topic/${id}`,
+          success:(res)=>{
+            const { success, data } = res.data
+            if(success){
+              this.title = data.title;
+              this.author = data.author.loginname;
+              let content = data.content;
+              this.content = content;
+              this.tab = data.tab;
+              this.create_at = formatDate(data.create_at);
+              this.last_reply_at = formatDate(data.last_reply_at);
+              this.replies = data.replies.map(item=>{
+                return Object.assign(item,{create_at:countTime(item.create_at)})
+              });
+            }
+          }
+        })
+      }
+    });
+  </script>
+  <config>
+  {
+      navigationBarTitleText: '详情',
+  }
+  </config>
